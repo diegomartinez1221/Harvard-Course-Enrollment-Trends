@@ -1,0 +1,158 @@
+---
+title: "Harvard Spring Undergraduate Enrollment"
+author: "Diego Martinez"
+date: "4/9/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+#loading in necessary libraries
+
+library(readxl)
+library(janitor)
+library(tidyverse)
+library(dplyr)
+library(fs)
+library(ggthemes)
+library(gifski)
+library(png) 
+library(ggplot2)
+library(gganimate)
+library(lubridate)
+library(ggrepel)
+
+#downloading data, I only chose Spring Semesters because some courses are only
+#offered in the Spring or the Fall. I also only downloaded data as far back as
+#2016 because in 2015 the files from the registrar were not Excel files, they
+#were pdfs.
+
+download.file("https://registrar.fas.harvard.edu/files/fas-registrar/files/class_enrollment_summary_by_term_3.22.19.xlsx",
+              dest= "reg_s2019.xsls",
+              mode= "wb")
+
+
+download.file("https://registrar.fas.harvard.edu/files/fas-registrar/files/class_enrollment_summary_by_term_03.06.18.xlsx", 
+              dest = "reg_s2018.xsls",
+              mode= "wb")
+
+download.file("http://registrar.fas.harvard.edu/files/fas-registrar/files/class_enrollment_summary_by_term_2017_03_07_final_0.xlsx", 
+              dest = "reg_s2017.xsls",
+              mode= "wb")
+
+
+download.file("http://registrar.fas.harvard.edu/files/fas-registrar/files/course_enrollment_statistics_0.xlsx", 
+              dest = "reg_s2016.xsls",
+              mode= "wb")
+
+
+x_s2019 <-
+  read_excel("reg_s2019.xsls", skip = 3) %>%
+  clean_names() %>%
+  filter(!is.na(course_name)) 
+ 
+
+x_s2018 <-
+  read_excel("reg_s2018.xsls", skip = 3) %>%
+  clean_names() %>%
+  filter(!is.na(course_name))
+  
+
+
+x_s2017 <-
+  read_excel("reg_s2017.xsls", skip = 3) %>%
+  clean_names() %>%
+  filter(!is.na(course_name)) 
+
+#column titles differed compared to other years. I mutated so that I could bind
+#all the rows into one large dataset and I only kept the rows I would need for
+#my analysis.
+
+x_s2016 <-
+  read_excel("reg_s2016.xsls") %>%
+  clean_names()%>% 
+  mutate(u_grad = hcol, course_title = course)%>% 
+  select(u_grad, course_title, course_id)
+
+#creating my full dataset. I added ids so that I can differentiate which data
+#came from what year. I then changed the id to a numeric so that I can plot it
+#and animate by year in my graphic. Finally, I selected only the columns I would
+#need for analysis.
+
+enrollment<- bind_rows(list(
+                            `2016` = x_s2016,
+                            `2017` = x_s2017,
+                            `2018` = x_s2018,
+                            `2019` = x_s2019), .id = "Semester")%>%
+  mutate(Semester= as.Date(Semester, format = "%Y"), 
+         Semester = year(Semester))%>%
+  select(Semester, course_title, course_id, u_grad)
+
+#No further need for the .xsls files. 
+
+file_delete(c("reg_s2016.xsls","reg_s2017.xsls","reg_s2018.xsls", "reg_s2019.xsls"))
+```
+
+
+```{r, data_manipulation}
+
+#first sought to find the courses with the top 10 highest undergraduate
+#enrollments in Spring 2016
+
+most_2016<-enrollment%>%
+
+#only need courses offered in 2016
+  
+  filter(Semester == 2016)%>%
+  
+#u_grad is number of undergraduates enrolled thus I am arranging them from most
+#to least
+  
+  arrange(desc(u_grad))%>% 
+ 
+#only keeping the top 10
+  
+  slice(1:10)%>%
+ 
+#selecting just course_id because over the years course titles can change and I
+#was not able to get gganimate to work when grouping my course_title.
+  
+  select(course_id)
+
+#creating a data set with all years, but only courses that were top 10 in
+#enrollment in 2016 by inner_joining which removes rows that are not in both
+#datasets.
+
+top_courses<-enrollment%>%
+inner_join(most_2016, by = "course_id")
+```
+
+
+```{r graphic_creation, fig.height=8, fig.width=8}
+
+#creating my gganimate graph which shows the change of course enrollment over
+#the years
+
+x<- top_courses%>%
+  
+#creates the plot. I had to use different variables for the color and group (course_id) than course_title which I used for labels because the gganimate would not start in 2016 when I used course_title which leads me to believe that course_titles are slightly different. 
+  
+  ggplot(aes(x= Semester, y= u_grad, color = course_id, label = course_title, group = course_id, show.legend = FALSE))+ 
+  geom_point(show.legend = FALSE)+
+  geom_line()+ 
+  scale_color_brewer(palette = "Set3") + 
+  geom_text_repel(size = 4)+ 
+  scale_x_continuous(breaks = c(2016, 2017, 2018, 2019), labels = c("2016", "2017","2018", "2019")) + 
+  scale_y_continuous(breaks = seq(0,600, by = 50)) + 
+  labs(x= "Year", y= "Undergraduates Enrolled", title = "How Spring Courses With The Highest Undergraduate Enrollement\n At Harvard College In 2016 Have Faired Since", 
+       caption = "Harvard Registrar \n notes: Gov 1359 was only offered in 2016 \n Psy 15 was not offered in Spring 2019")+
+   theme_dark()+ 
+  theme(legend.position = "none", panel.grid.major = element_line(colour = "white", size=0.1), plot.title = element_text(hjust = 0.5))+
+  transition_reveal(Semester)
+
+animate(x, nframes = 4, duration = 10)
+```
+
+
+
