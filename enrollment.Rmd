@@ -1,12 +1,6 @@
----
-title: "Harvard Spring Undergraduate Enrollment"
-author: "Diego Martinez"
-date: "4/9/2019"
-output: html_document
----
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
 
 #loading in necessary libraries
 
@@ -129,27 +123,79 @@ inner_join(most_2016, by = "course_id")
 ```
 
 
-```{r graphic_creation, fig.height=8, fig.width=8}
+```{r graphic_creation, fig.height=15, fig.width=10}
 
 #creating my gganimate graph which shows the change of course enrollment over
 #the years
 
 x<- top_courses%>%
   
-#creates the plot. I had to use different variables for the color and group (course_id) than course_title which I used for labels because the gganimate would not start in 2016 when I used course_title which leads me to believe that course_titles are slightly different. 
+#creates the plot. I had to use different variables for the color and group
+#(course_id) than course_title which I used for labels because the gganimate
+#would not start in 2016 when I used course_title which leads me to believe that
+#course_titles are slightly different between 2016 and 2017.
   
-  ggplot(aes(x= Semester, y= u_grad, color = course_id, label = course_title, group = course_id, show.legend = FALSE))+ 
-  geom_point(show.legend = FALSE)+
+  ggplot(aes(x= Semester, y= u_grad, color = course_id, label = course_title, group = course_id))+ 
+  
+#could use only geom_line; however for aesthetic purposes adding the point helps
+#distinguish the lines and there values on the graph.
+  
+  geom_point()+
+  
+#use geom_line to connect the points as the animation occurs between years.
+  
   geom_line()+ 
+  
+ #changes the colors of the points and lines. I chose this one particularly
+ #because it was one of the only palletes with enough colors to give a different
+ #color for each course.
+  
   scale_color_brewer(palette = "Set3") + 
+  
+#eliminates the need for a legend. the text is in the graph and moves with the
+#points and lines.
+  
   geom_text_repel(size = 4)+ 
+  
+#Originally the graph had weird 2016.5, 2017.5 ticks, which are not useful given
+#the x axis are years. Thus manually changed the x axis ticks and labels.
+  
   scale_x_continuous(breaks = c(2016, 2017, 2018, 2019), labels = c("2016", "2017","2018", "2019")) + 
-  scale_y_continuous(breaks = seq(0,600, by = 50)) + 
-  labs(x= "Year", y= "Undergraduates Enrolled", title = "How Spring Courses With The Highest Undergraduate Enrollement\n At Harvard College In 2016 Have Faired Since", 
+  
+#changed the y axis because the data points initially where clumped very close
+#together and made it hard to distinguish between points. This spreads them out
+#some more.
+  
+  scale_y_continuous(breaks = seq(0,600, by = 50)) +
+  
+#creating informative labels and title. also caption that gives credit to source
+#of data as well as footnote helping to explain the graph.
+  
+  labs(x= "Year (Spring Semester)",
+       y= "Undergraduates Enrolled",
+       title = "Harvard Undergraduate Enrollment Trends Of Top 10 Courses \n From The Spring Of 2016", 
        caption = "Harvard Registrar \n notes: Gov 1359 was only offered in 2016 \n Psy 15 was not offered in Spring 2019")+
+  
+# used theme_dark for aesthetic purposes and because the lines and colors really went well with this background. 
+  
    theme_dark()+ 
+  
+#use theme to clean up my graph. First, I erase the legend because I already
+#have the course names within the graph. I then changed the grid lines because
+#they were black which blended in with the new theme_dark. Changing the color to
+#white makes teh grid lines more visible. Finally, I have a long title the runs
+#onto to lines. To make it look better, I center the title within theme.
+  
   theme(legend.position = "none", panel.grid.major = element_line(colour = "white", size=0.1), plot.title = element_text(hjust = 0.5))+
+  
+# use transition_reveal to finally add the animation. I used this instead of
+# transition_state or transition_manual because only this function gradually
+# reveals the line.
+  
   transition_reveal(Semester)
+
+#animates the graph with a frame per year and I use a duration of 10 to allow
+#time to view the graphic at each year.
 
 animate(x, nframes = 4, duration = 10)
 ```
